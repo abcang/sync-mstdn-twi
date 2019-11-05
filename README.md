@@ -53,6 +53,7 @@ docker run \
 ## 更新履歴
 * 2017/11/02: 公開
 * 2018/06/06: Streaming APIをやめた。TWITTER_USER_IDSを使用せず、アクセストークンのユーザーを使用するように変更。
+* 2019/11/05: bundle update
 
 ## ライセンス
 MIT
