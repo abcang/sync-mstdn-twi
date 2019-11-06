@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'bundler/setup'
 require 'dotenv'
 require 'twitter'
@@ -10,9 +12,9 @@ module SyncMstdnTwi
 
       lack_env = check_env(ENV.keys)
       unless lack_env.empty?
-        STDERR.puts 'Not enough environment variable'
+        warn 'Not enough environment variable'
         lack_env.each do |env|
-          STDERR.puts "  #{env}"
+          warn "  #{env}"
         end
         exit 1
       end
@@ -23,26 +25,41 @@ module SyncMstdnTwi
     private
 
     def main
-      user = client.verify_credentials
       loop do
-        sleep 10 if @since_id
-
-        params = { count: 200, include_rts: false }
-        params[:since_id] = @since_id if @since_id
-        statuses = client.user_timeline(user, params)
-        next if statuses.empty?
-
-        before_since_id = @since_id
-        @since_id = statuses.first.id
-        next unless before_since_id
-
-        statuses.reverse_each do |status|
+        fetch_statuses.reverse_each do |status|
           next if status.retweet? || !match_application?(status)
 
           message = build_message(status)
           post_to_mastodon(message)
         end
+
+        # Max 1500 requests / 15-min
+        sleep 10
       end
+    end
+
+    def fetch_statuses
+      is_first_fetch = @since_id.nil?
+
+      params = { count: 200, include_rts: false }
+      params[:since_id] = @since_id if @since_id
+      statuses = client.user_timeline(user, params).to_a
+      @since_id = statuses.first.id unless statuses.empty?
+
+      # Tweets acquired for the first time are not subject to notification
+      return [] if is_first_fetch
+
+      statuses
+    rescue Twitter::Error::TooManyRequests
+      warn 'too many requests'
+      []
+    rescue HTTP::ConnectionError
+      warn 'http connection error'
+      []
+    end
+
+    def user
+      @user ||= client.verify_credentials
     end
 
     def match_application?(status)
