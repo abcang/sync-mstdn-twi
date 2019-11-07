@@ -50,11 +50,8 @@ module SyncMstdnTwi
       return [] if is_first_fetch
 
       statuses
-    rescue Twitter::Error::TooManyRequests
-      warn 'too many requests'
-      []
-    rescue HTTP::ConnectionError
-      warn 'http connection error'
+    rescue Twitter::Error::TooManyRequests, HTTP::ConnectionError => e
+      warn e.inspect
       []
     end
 
